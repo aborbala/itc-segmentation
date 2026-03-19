@@ -12,8 +12,7 @@ library("dplyr")
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 
 # ---- CONFIGURATION ----
-#aoi_code <- "386_5818"  # training data
-aoi_code <- "384_5816"   # training data
+aoi_code <- "384_5816"
 
 # Handle both ("Meine Ablage") and  ("My Drive") Drive names
 drive_options <- c("G:/Meine Ablage", "G:/My Drive")
@@ -30,8 +29,6 @@ tif_directory <- file.path(aoi_base_path, "sliced_imgs_2020S")
 las_nobuild_path <- file.path(aoi_base_path, "LAS_no_structures_veg_mask")
 las_files <- list.files(path = las_nobuild_path, pattern = "\\.las$", full.names = TRUE, recursive = FALSE)
 
-#las_nobuild_path <- "C:/tree-canopy/data/386_5818/LAS_no_buildings"
-
 # Outputs
 crowns_path <- file.path(aoi_base_path, "crowns_no_structures_veg_mask_Silva")
 
@@ -39,8 +36,12 @@ if (!dir.exists(crowns_path)) {
   dir.create(crowns_path, recursive = TRUE)
 }
 
-### Calculate width to height ratio to eliminate elongated polygons
-### Using bbox instead of oo-bbox
+#' Calculate width-to-height ratio of a polygon's bounding box
+#'
+#' Used to filter out elongated polygons that are unlikely to be tree crowns.
+#'
+#' @param polygon An sf geometry object.
+#' @return Numeric width-to-height ratio.
 calculate_ratio <- function(polygon) {
   # Calculate the minimum bounding box
   mbr <- st_bbox(polygon)
@@ -54,7 +55,12 @@ calculate_ratio <- function(polygon) {
   
   return(ratio)
 }
-custom_crown_metrics <- function(z, i) { 
+#' Compute custom per-crown metrics from LiDAR point cloud
+#'
+#' @param z Numeric vector of point heights (Z values).
+#' @param i Numeric vector of point intensities.
+#' @return Named list with z_max, z_sd, i_mean, i_max.
+custom_crown_metrics <- function(z, i) {
   metrics <- list(
     z_max = max(z),   # max height
     z_sd = sd(z),     # vertical variability of points
@@ -70,13 +76,19 @@ calculate_ratio_df <- function(df) {
     mutate(width_to_height_ratio = calculate_ratio(geometry))
 }
 
-## Local Maximum Filter with variable windows size
-# Function for Deciduous Trees
+#' Variable window size function for deciduous tree top detection
+#'
+#' @param H Numeric canopy height value(s).
+#' @return Window size in map units.
 ws_deciduous <- function(H) {
   return(3.09632 + 0.00895* (H^2))
 }
 
 
+#' Variable window size function using a 2nd-degree polynomial
+#'
+#' @param H Numeric canopy height value(s).
+#' @return Window size in map units (minimum 1).
 ws_2nd_polynomial <- function(H) {
   result <- (6.2299 + 1.1495 * H - 0.0105 * H^2) / 2
   
@@ -89,7 +101,14 @@ ws_2nd_polynomial <- function(H) {
   return(result)
 }
 
-### Function to extract crowns from Lidar data
+#' Extract tree crowns from LiDAR data within a bounding box
+#'
+#' Clips the point cloud to the bbox, generates a pit-free CHM, detects tree tops
+#' using a local maximum filter, and segments crowns with the Silva algorithm.
+#'
+#' @param las_clip A LAS object (normalized heights, filtered).
+#' @param bbox An sf bounding box defining the area of interest.
+#' @return An sf object with crown polygons, or NULL if no crowns detected.
 extract_crowns <- function(las_clip, bbox) {
   print("extracting crowns...")
   las_aoi <- clip_roi(las_clip, bbox)
@@ -101,9 +120,6 @@ extract_crowns <- function(las_clip, bbox) {
   }
   print("extracting crowns... LAS present!")
 
-  # point by a 20 cm radius circlfe of 8 points
-  #chm_p2r_05 <- rasterize_canopy(las_aoi, 0.5, p2r(subcircle = 0.2), pkg = "terra")
-  
   chm_pitfree_subcirlce <- tryCatch({
     rasterize_canopy(las_aoi, res = 0.5, pitfree( thresholds = c(0, 2, 5, 10, 15), subcircle = 0.15))
   }, error = function(e) {
@@ -117,12 +133,7 @@ extract_crowns <- function(las_clip, bbox) {
     return(NULL) 
   }
   
-  #chm_pitfree_subcirlce <- rasterize_canopy(las_aoi, res = 0.5, pitfree( thresholds = c(0, 2, 5, 10, 15), subcircle = 0.15))
-  # Calculate focal ("moving window") values for each cell: smoothing steps with a median filter
-  #kernel <- matrix(1,3,3)
-  #chm_p2r_05_smoothed <- terra::focal(chm_p2r_05, w = kernel, fun = median, na.rm = TRUE)
-  
-  ## Postprocessing CHM: try to remove traffic signs and lamps
+  ## Postprocessing CHM: filter out low vegetation, traffic signs, and lamps
   chm_pitfree_subcirlce[chm_pitfree_subcirlce < 5] <- NA
   # Create a binary raster (e.g., threshold > 0 for tree areas)
   binary_chm <- chm_pitfree_subcirlce > 5
@@ -145,43 +156,16 @@ extract_crowns <- function(las_clip, bbox) {
 
  
   ttops_pitfree_subcirlce_cleaned <- locate_trees(chm_pitfree_subcirlce_cleaned, lmf(ws = ws_2nd_polynomial, hmin = 5,  ws_args = list("Z")))
-  
-  # Use dalponte algorithm
-  
-  # algo_dalponte <- dalponte2016(chm_pitfree_subcirlce_cleaned, ttops_pitfree_subcirlce_cleaned,   th_tree = 2,    # Minimum tree height
-  #                               th_seed = 0.45, # Seed threshold for initial growth
-  #                               th_cr = 0.65,   # Crown merging threshold
-  #                               max_cr = 30)    # Max crown diameter (20 pixels = 10m for 0.5m CHM)
-  # las_dalponte <- segment_trees(las_aoi, algo_dalponte)
-  # crowns_dalponte <- tryCatch({
-  #   crown_metrics(las_dalponte, func = ccm, geom = "concave")
-  # }, error = function(e) {
-  #   print("No crowns detected. Adjust parameters.")
-  #   return(data.frame())
-  # })
-  
-  # Use Silva algorithm
+
+  # Segment tree crowns using Silva algorithm
   algo_silva <- silva2016(chm_pitfree_subcirlce_cleaned, ttops_pitfree_subcirlce_cleaned, max_cr = 0.6, exclusion = 0.3)
   las_silva <- segment_trees(las_aoi, algo_silva)
-  crowns_silva <- crown_metrics(las_silva, func = ccm, geom = "concave")
   crowns_silva <- tryCatch({
     crown_metrics(las_silva, func = ccm, geom = "concave")
   }, error = function(e) {
     print("No crowns detected. Adjust parameters.")
     return(data.frame())
   })
-  #ttops_chm_p2r_05_smoothed <- locate_trees(chm_p2r_05_smoothed, lmf(8))
-  #algo <- silva2016(chm_p2r_05_smoothed, ttops_chm_p2r_05_smoothed)
-  #las_tree <- segment_trees(las_aoi, algo)
-  #crowns <- crown_metrics(las_tree, func = .stdtreemetrics, geom = "convex")
-  #crowns <- crowns[crowns$convhull_area > 10,]
-  #crowns <- calculate_ratio_df(crowns)
-  #crowns <- crowns[crowns$width_to_height_ratio > 0.5 & crowns$width_to_height_ratio < 1.5 ,]
-  #ccm = ~custom_crown_metrics(z = Z, i = Intensity)
-  #crowns <- crown_metrics(las_tree, func = ccm, geom = "concave")
-  #crowns <- crowns[crowns$z_sd > 0.5,]
-  #crowns <- calculate_ratio_df(crowns)
-  #crowns <- crowns[crowns$width_to_height_ratio > 0.5 & crowns$width_to_height_ratio < 1.5 ,]
   if (is.null(crowns_silva) || nrow(crowns_silva) == 0) {
     print("No crowns detected. Adjust parameters.")
     return(NULL)
@@ -194,32 +178,19 @@ extract_crowns <- function(las_clip, bbox) {
   return(crowns_silva)
 }
 
-### Function to process all .tif files in a given directory
-# process_tif_files <- function(dir_path, crowns_path) {
-#   files <- list.files(path = dir_path, pattern = "\\.tif$", full.names = TRUE, recursive = FALSE)
-#   
-#   lapply(files, function(x) {
-#     print(x)
-#     ras <- st_as_sf(read_stars(x))
-#     st_crs(ras) <- 25833
-#     ext <- st_bbox(ras)
-#     crowns <- extract_crowns(las_clip, ext)
-#     
-#     if (!is.null(crowns)) {
-#       filename <- strsplit(sub(".*/", "", x), "\\.")[[1]][1]
-#       st_write(crowns, paste(crowns_path, filename, ".geojson", sep = ""), delete_dsn = T)
-#     }
-#   })
-# }
-### Function to process all .tif files in a given directory
+#' Process all .tif tiles and extract tree crowns from matching LAS files
+#'
+#' For each TIF tile, finds the corresponding LAS file by name, clips to
+#' the tile extent, extracts crowns, and saves results as GeoJSON.
+#'
+#' @param dir_path Directory containing .tif tile images.
+#' @param crowns_path Output directory for crown GeoJSON files.
+#' @param las_files Character vector of full paths to LAS files.
 process_tif_files <- function(dir_path, crowns_path, las_files) {
   tif_files <- list.files(path = dir_path, pattern = "\\.tif$", full.names = TRUE, recursive = FALSE)
   lapply(tif_files, function(tif_file) {
     print(tif_file)
     
-    #if (tif_file != "G:/Meine Ablage/data/386_5818/sliced_imgs_2020S/3dm_33_386_5819_1_be_nobuild_134.tif"){
-    #  return(NULL)
-    #}
     ras <- st_as_sf(read_stars(tif_file))
     st_crs(ras) <- 25833
     ext <- st_bbox(ras)
@@ -231,9 +202,7 @@ process_tif_files <- function(dir_path, crowns_path, las_files) {
     las_file <- las_files[grep(tif_base_name, las_files)]
     las_clip <- readLAS(las_file)
     
-    # Only consider crowns taller than 5 m
     las_clip <- filter_poi(las_clip, Z >= 0)
-    #chm <- rasterize_canopy(las_clip, 1, p2r())
     crowns <- extract_crowns(las_clip, ext)
     
     if (!is.null(crowns)) {
@@ -242,8 +211,6 @@ process_tif_files <- function(dir_path, crowns_path, las_files) {
     }
   })
 }
-#debug: "G:/Meine Ablage/data/386_5818/sliced_imgs_2020S/3dm_33_386_5819_1_be_nobuild_134.tif"
-### Processing
-#process_tif_files(tif_directory, crowns_path)
+
 process_tif_files(tif_directory, crowns_path, las_files)
 

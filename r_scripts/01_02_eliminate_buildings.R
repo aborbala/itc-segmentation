@@ -6,7 +6,6 @@ library(ggplot2)
 library(terra)
 
 # ---- CONFIGURATION ----
-#aoi_code <- "386_5818" # training data
 aoi_code <- "384_5816" # test data
 
 FETCH_STRUCTURES = TRUE
@@ -60,10 +59,7 @@ process_las_with_masking   <- function(merged_structures_path,
   las_bbox <- st_as_sfc(st_bbox(las))  
   
   final_mask <- las_bbox
-  
-  #structures <- st_read(merged_structures_path, quiet = TRUE)
-  #st_crs(structures) <- 25833
-  
+
   if (eliminate_structures) {
     structures <- st_read(merged_structures_path, quiet = TRUE)
     st_crs(structures) <- crs
@@ -84,18 +80,19 @@ process_las_with_masking   <- function(merged_structures_path,
   return(las_clip)
 }
 
-get_osm_structures <- function() { 
+#' Fetch man-made structures and bridges from OpenStreetMap
+#'
+#' Queries OSM for man_made features and bridges within the AOI bounding box,
+#' unions them into a single geometry, and reprojects to the local CRS.
+#'
+#' @return An sf object with the unioned structure geometries, or NULL if none found.
+get_osm_structures <- function() {
   local_crs <- crs
   aoi_rast <- terra::rast(aoi_tif)
   aoi_poly <- st_as_sfc(st_bbox(aoi_rast), crs = crs)
   aoi_wgs84 <- st_transform(aoi_poly, 4326)
   bbox_wgs84 <- st_bbox(aoi_wgs84)
-  
-  # Convert bounding box to WGS 84 (EPSG:4326) for OSM query
-  #bbox_local <- st_bbox(buildings)
-  #bbox_wgs84 <- st_transform(st_as_sfc(bbox_local, crs = local_crs), crs = 4326)
-  #bbox_wgs84 <- st_bbox(bbox_wgs84)  # Convert to bbox format
-  
+
   # Query OSM for all man_made features within the bounding box
   query_man_made <- osmdata::opq(bbox = c(bbox_wgs84["xmin"], bbox_wgs84["ymin"], bbox_wgs84["xmax"], bbox_wgs84["ymax"])) %>%
     osmdata::add_osm_feature(key = "man_made")
@@ -146,11 +143,13 @@ get_osm_structures <- function() {
   return(structures_union_sf)
 }
 
-get_osm_buildings <- function() { 
-  # Convert bounding box to WGS 84 (EPSG:4326) for OSM query
-  #bbox_local <- st_bbox(buildings)
-  #bbox_wgs84 <- st_transform(st_as_sfc(bbox_local, crs = local_crs), crs = 4326)
-  #bbox_wgs84 <- st_bbox(bbox_wgs84)  # Convert to bbox format
+#' Fetch building footprints from OpenStreetMap
+#'
+#' Queries OSM for buildings within the AOI bounding box,
+#' unions them into a single geometry, and reprojects to the local CRS.
+#'
+#' @return An sf object with the unioned building geometries, or NULL if none found.
+get_osm_buildings <- function() {
   local_crs <- crs
   aoi_rast <- terra::rast(aoi_tif)
   aoi_poly <- st_as_sfc(st_bbox(aoi_rast), crs = crs)
@@ -196,24 +195,9 @@ get_osm_buildings <- function() {
 }
 
 
-# Folder paths
-#las_folder_path <- "H:/My Drive/masterthesis/data/386_5818/LAS"
-#buildings_path <- "H:/My Drive/masterthesis/data/386_5818/buildings.gpkg"
-#bridges_output_path <- "H:/My Drive/masterthesis/data/386_5818/bridges.gpkg"
-#merged_structures_path <- "H:/My Drive/masterthesis/data/386_5818/structures.gpkg"
-#output_folder_path <- "H:/My Drive/masterthesis/data/386_5818/LAS_no_buildings"
-#output_veg_mask_folder_path <- "H:/My Drive/masterthesis/data/386_5818/LAS_no_buildings_veg_mask"
-#men_made_output_path <- "H:/My Drive/masterthesis/data/386_5818/men_made.gpkg"
-#veg_mask_path <- "H:/My Drive/masterthesis/data/386_5818/vegetation_mask/veg_mask_buffered.gpkg"
-#if (!dir.exists(output_folder_path)) dir.create(output_folder_path)
-
-
 if (FETCH_STRUCTURES == TRUE) {
-  #bridges_sf <- get_bridges_osm(buildings_path)
   structures_sf <- get_osm_structures()
   
-  # Load buildings data
-  #buildings_sf <- st_read(buildings_path, quiet = TRUE)
   buildings_sf <- get_osm_buildings()
   # Keep only geometries (drop attributes)
   buildings_geom <- st_geometry(buildings_sf)
@@ -251,8 +235,7 @@ for (las_path in las_files) {
 
 }
 
-### PLOTTING
-# Compare osm buldings and ALKIS buildings
+### PLOTTING: Compare OSM buildings and ALKIS buildings
 buildings_alkis <- st_read(buildings_path, quiet = TRUE)
 buildings_osm <-get_osm_buildings(buildings_path)
 buildings_alkis <- st_union(buildings_alkis)

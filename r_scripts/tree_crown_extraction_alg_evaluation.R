@@ -8,6 +8,15 @@ las_paths <- dir_ls("H:/My Drive/masterthesis/data/test", recurse = TRUE, regexp
 # Optional: ensure they are sorted/matching
 result_df <- tibble::tibble()
 
+#' Evaluate tree crown predictions using the RandCrowns metric
+#'
+#' For each ground truth crown, finds the best-matching prediction above the
+#' IoU threshold and computes its RandCrowns score.
+#'
+#' @param predictions An sf object of predicted crown polygons.
+#' @param groundtruth An sf object of ground truth crown polygons.
+#' @param iou_threshold Minimum IoU to consider a prediction as a match.
+#' @return Numeric vector of RandCrowns scores (one per ground truth crown).
 evaluate_randcrowns <- function(predictions, groundtruth, iou_threshold = 0.3) {
   scores <- c()
   

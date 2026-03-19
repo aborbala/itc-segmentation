@@ -1,8 +1,8 @@
+# Cadaster Statistics: Compute and visualize crown diameter distribution
+# from a tree cadaster GeoPackage file.
 
 library(sf)
 library(ggplot2)
-
-# Set the path to your GeoPackage file.
 file_path <- "G:/Meine Ablage/masterthesis/data/386_5818/trees.gpkg"
 
 trees_data <- NULL

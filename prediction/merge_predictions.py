@@ -8,6 +8,11 @@ output_file  = r"C:/tree-canopy/data/merged_predictions.geojson"
 # ==========================================
 
 def fast_merge():
+    """Merge all per-tile GeoJSON prediction files into a single FeatureCollection.
+
+    Reads raw file content and concatenates feature arrays directly,
+    avoiding the overhead of parsing each file with a GeoJSON library.
+    """
     # 1. Get list of files
     print(f"Scanning files in {input_folder}...")
     files = glob.glob(os.path.join(input_folder, "*.geojson"))
