@@ -68,6 +68,7 @@ def clean_overlaps_natural(gdf):
     return gdf_clean.drop(columns=['area_calc'])
 
 def main():
+    """Load merged predictions, remove overlapping artifacts, and save cleaned output."""
     if not os.path.exists(INPUT_FILE):
         print("File not found.")
         return
