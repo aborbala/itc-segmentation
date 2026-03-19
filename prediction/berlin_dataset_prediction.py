@@ -53,7 +53,6 @@ Parameters:
 """
 
 
-#from google.colab import drive
 import os
 import rasterio
 import numpy as np
@@ -68,9 +67,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 import glob
-import collections # <-- ADDED FOR RESUME LOGIC
-
-#drive.mount('/content/drive')
+import collections
 
 base_directory = r'G:/Meine Ablage/masterthesis\data'
 raster_slice_dir = os.path.join(base_directory, '2020_DOP_all')
@@ -156,18 +153,13 @@ def remove_highly_overlapping_polygons(
 
             candidate_poly = gdf_sorted.iloc[j].geometry
 
-            # --- MODIFICATION START ---
-            # Instead of a simple .contains(), calculate the overlap fraction.
             intersection_area = current_poly.intersection(candidate_poly).area
 
-            # Since the list is sorted, the candidate_poly (j) will always be the
-            # smaller or equal one in terms of confidence. We check its area.
             if candidate_poly.area > 0:
                 overlap_fraction = intersection_area / candidate_poly.area
 
                 if overlap_fraction > overlap_threshold:
-                    to_remove[j] = True  # Mark the highly overlapping polygon for removal
-            # --- MODIFICATION END ---
+                    to_remove[j] = True
 
     # Return the GeoDataFrame keeping only the un-suppressed polygons
     gdf_clean = gdf_sorted[~to_remove].reset_index(drop=True)
@@ -238,15 +230,11 @@ def nms_by_containment(
                 to_remove[j] = True
                 continue
 
-            # --- This is the key change: Calculate containment ---
             intersection_area = current_poly.intersection(candidate_poly).area
-
-            # Calculate how much of the SMALLER poly is inside the LARGER one
             containment_fraction = intersection_area / candidate_area
 
             if containment_fraction > containment_threshold:
-                to_remove[j] = True  # Mark the smaller, contained polygon for removal
-            # --------------------------------------------------
+                to_remove[j] = True
 
     # Return the GeoDataFrame keeping only the un-suppressed polygons
     gdf_clean = gdf_sorted[~to_remove].reset_index(drop=True)
@@ -280,13 +268,10 @@ def clip_overlaps_by_area(
     if gdf.empty or len(gdf) < 2:
         return gdf
 
-    # --- KEY CHANGE: Add area and sort by it ---
     gdf_with_area = gdf.copy()
     gdf_with_area['area'] = gdf_with_area.geometry.area
 
-    # Sort by area, smallest first.
     gdf_sorted = gdf_with_area.sort_values(by='area', ascending=True).reset_index(drop=True)
-    # --- END KEY CHANGE ---
 
     # Use a spatial index for fast queries
     sindex = gdf_sorted.sindex
@@ -309,8 +294,6 @@ def clip_overlaps_by_area(
             new_geometries.append(current_poly)
             continue
 
-        # --- This is the key clipping step ---
-        # Iteratively subtract the geometries of all smaller overlaps
         for j in smaller_matches:
             # Check for actual intersection before subtracting
             if current_poly.intersects(gdf_sorted.iloc[j].geometry):
@@ -372,21 +355,12 @@ def smooth_polygons(
 
     return gdf_clean.reset_index(drop=True)
 
-"""# rasterio window"""
-
-
 from rasterio.windows import Window
-from shapely.geometry import box
 
-IOU_THRESHOLDS = [0.50]
-PRIMARY_IOU_FOR_PLOTTING = 0.25
-CONFIDENCE_THRESHOLD = 0.1
-NMS_THRESHOLD=0.3
-OVERLAP_THRESHOLD=0.8
 TILE_SIZE_METERS = 100
 OVERLAP_METERS = 20
 TARGET_CRS = "EPSG:25833"
-EXPECTED_WINDOWS_PER_RASTER = 625 # <--- 💡 SET THIS TO YOUR KNOWN TOTAL
+EXPECTED_WINDOWS_PER_RASTER = 625
 
 evaluation_results = []
 all_preds_gdfs = []
@@ -394,7 +368,7 @@ all_gts_gdfs = []
 
 # --- Find all LARGE rasters to process ---
 all_image_paths = glob.glob(os.path.join(raster_slice_dir, "*.jp2"))
-all_image_paths.sort() # <-- Ensures a consistent processing order
+all_image_paths.sort()
 
 print(f"\nFound {len(all_image_paths)} total large rasters.")
 print(f"Target CRS is set to: {TARGET_CRS}")
@@ -510,7 +484,7 @@ for i, raster_path in enumerate(rasters_to_process):
                         print(f"     --- Processing window {window_count}/{total_windows}: {window_aoi_code} ---")
 
                     try:
-                        all_gts_gdfs.append(gpd.GeoDataFrame(geometry=[], crs=ACTIVE_CRS)) # <--- CHANGED
+                        all_gts_gdfs.append(gpd.GeoDataFrame(geometry=[], crs=ACTIVE_CRS))
 
                         # --- Read Window Data & Run Prediction ---
                         tile_data_raw = src.read((1, 2, 3), window=window)
@@ -570,8 +544,6 @@ if all_gts_gdfs:
     final_all_gts = gpd.GeoDataFrame(pd.concat(all_gts_gdfs, ignore_index=True), crs=ACTIVE_CRS)
     print(f"Total individual ground truths from this run: {len(final_all_gts)}")
 
-
-"""# sliced"""
 
 evaluation_results = []
 all_preds_gdfs = []

@@ -5,30 +5,12 @@ library(tidyr)
 library(showtext)
 library(viridis)
 
-#TODO: see how th plots from python look like and try to adjust R
-
 
 # --- 2. Load the Montserrat Font ---
 font_add_google("Montserrat", "Montserrat")
 showtext_auto()
 
 red_color <- "#ec3c3a"
-
-# --- 3. Create the Data Frame with Your Results ---
-# results_df <- data.frame(
-#   Model = c("1. Baseline", 
-#             "2. High-Certainty", 
-#             "3. Ignore-Region", 
-#             "4. High-Cert + Custom Loss", 
-#             "5. Baseline + Custom Loss"),
-#   P_25 = c(0.556, 0.629, 0.620, 0.722, 0.501),
-#   R_25 = c(0.797, 0.678, 0.746, 0.651, 0.837),
-#   F1_25 = c(0.655, 0.653, 0.677, 0.684, 0.627),
-#   P_50 = c(0.428, 0.506, 0.527, 0.590, 0.383),
-#   R_50 = c(0.614, 0.546, 0.634, 0.532, 0.641),
-#   F1_50 = c(0.504, 0.525, 0.575, 0.560, 0.480),
-#   RandCrowns = c(0.625, 0.510, 0.579, 0.501, 0.651)
-# )
 
 # --- 3. Create the Data Frame with Your Results ---
 results_df <- data.frame(
@@ -99,17 +81,6 @@ print(heatmap_plot)
 ggsave("model_performance_heatmap_highlighted.png", plot = heatmap_plot, width = 10, height = 6, dpi = 120, bg = "white")
 
 
-
-# --- 1. Prepare the Data ---
-# The 'check.names = FALSE' argument allows for spaces and symbols in the column names.
-# lidar_results_df <- data.frame(
-#   Method = c("Dalponte", "Silva"),
-#   `RandCrowns` = c(0.525, 0.553),
-#   `F1-Score @ 0.5` = c(0.498, 0.527),
-#   `Precision @ 0.5` = c(0.495, 0.525),
-#   `Recall @ 0.5` = c(0.502, 0.529),
-#   check.names = FALSE
-# )
 
 lidar_results_df <- data.frame(
   Method = c("Dalponte", "Silva"),
@@ -205,9 +176,6 @@ results_df <- data.frame(
   check.names = FALSE
 )
 
-#   `F1-Score @ 0.25` = c(0.825, 0.822, 0.813, 0.831, 0.794, 0.798),
-
-
 # --- 4. Reshape Data and Define Column Order for Plotting ---
 long_results <- results_df %>%
   pivot_longer(cols = -`Experiment Label`, names_to = "Metric", values_to = "Score") %>%
@@ -290,32 +258,7 @@ print(hyperparameter_heatmap)
 ggsave("hyperparameter_heatmap_final.png", plot = hyperparameter_heatmap, width = 10, height = 5, dpi = 120, bg = "white")
 
 ###################################################
-###################################################
-###################################################
-# --- 3. Create the Data Frame with Your Results ---
-# results_df <- data.frame(
-#   Model = c("1. Final Model",
-#             "2. DeepForest",
-#             "3. Dalponte"),
-# 
-#   # Metrics at IoU >= 0.25
-#   P_25 = c(0.834, 0.831, 0.850),
-#   R_25 = c(0.812, 0.647, 0.637),
-#   F1_25 = c(0.823, 0.727, 0.728),
-# 
-#   # Metrics at IoU >= 0.50
-#   P_50 = c(0.641, 0.667, 0.631),
-#   R_50 = c(0.644, 0.521, 0.485),
-#   F1_50 = c(0.643, 0.585, 0.549),
-# 
-#   # Metrics at IoU >= 0.75
-#   P_75 = c(0.178, 0.198, 0.167),
-#   R_75 = c(0.178, 0.155, 0.129),
-#   F1_75 = c(0.177, 0.174, 0.146),
-# 
-#   # Custom Metric
-#   RandCrowns = c(0.637, 0.492, 0.511)
-# )
+# --- Benchmark Comparison: Final Model vs DeepForest vs Dalponte ---
 results_df <- data.frame(
   Model = c("1. Final Model",
             "2. DeepForest",
