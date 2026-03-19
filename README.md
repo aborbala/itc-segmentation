@@ -11,6 +11,45 @@ This project implements an end-to-end pipeline for:
 - **Model Evaluation**: Comparative analysis using RandCrowns metric and IoU-based metrics
 
 
+## Repository Structure
+
+```
+├── notebooks/
+│   ├── main_workflow/         # Core pipeline notebooks (Stages 0-4)
+│   │   ├── 00_create_vegetation_mask.ipynb
+│   │   ├── 01_01_mask_data.ipynb
+│   │   ├── 01_03_dop_slicing.ipynb
+│   │   ├── 01_05_data_cleaning.ipynb
+│   │   ├── 01_06_define_ignore_class.ipynb
+│   │   ├── 02_01_inner_tile_cropping_experimental.ipynb
+│   │   ├── 02_02_training_data_preparation.ipynb
+│   │   ├── 03_01_creating_training_and_validation_dataset.ipynb
+│   │   ├── 03_01a_model_training_default_ultralytics.ipynb
+│   │   ├── 03_01b_model_training_custom_ultralytics.ipynb
+│   │   ├── 03_01c_model_training_custom_dice_loss_ultralytics.ipynb
+│   │   ├── 04_01_evaluation_randcrowns.ipynb
+│   │   └── 04_02_evaluation_deepforest_and_dalponte.ipynb
+│   └── misc/                  # Auxiliary notebooks
+│       ├── bamforest_preprocessing.ipynb
+│       ├── calculate_priors_from_yolo_dataset.ipynb
+│       ├── check_sliced_images.ipynb
+│       └── plot_overfitting.ipynb
+├── prediction/                # Python scripts for city-wide prediction
+│   ├── berlin_dataset_prediction.py
+│   ├── merge_predictions.py
+│   └── postproc_area.py
+├── r_scripts/                 # R scripts for LiDAR processing & evaluation
+│   ├── 01_02_Eliminate_Buildings.R
+│   ├── 01_04_Tree_Crown_Extraction.R
+│   ├── cadaster_stats.R
+│   ├── plot_heatmap.R
+│   ├── tree_crown_extraction_alg_evaluation.R
+│   ├── plots/                 # Generated evaluation plots
+│   └── playground/            # Experimental R scripts
+├── thesis_workflow.drawio.png # Visual pipeline diagram
+└── README.md
+```
+
 ## Workflow Pipeline
 
 ### Stage 1: Data Preparation
@@ -288,16 +327,3 @@ Modify in configuration sections for other regions.
 - **DeepForest**: CNN for aerial tree detection https://github.com/weecology/DeepForest
 - **RandCrowns**: Custom metric for tree crown evaluation (original research metric)
 
-## License
-
-[Specify your license here]
-
-## Authors
-
-[Your name/organization]
-
-## Citation
-
-```bibtex
-[Add citation information if applicable]
-```
